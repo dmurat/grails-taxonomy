@@ -383,4 +383,23 @@ class TaxonomyServiceTests extends GroovyTestCase {
         // but its still on book2 right?
         assertEquals taxonomyService.resolveTaxon(['Non-fiction', 'Web 2.0', 'Entrepreneurial']).ident(), book2.getTaxonomies()[0].ident()
     }
+
+    void testDeleteEmptyTaxon() {
+        def book1 = new Book(title:'Reality Check')
+        assert book1.save()
+
+        def book2 = new Book(title:'Tribes')
+        assert book2.save()
+
+        def entrepreneurialTaxon = book1.addToTaxonomy(['Non-fiction', 'Web 2.0', 'Entrepreneurial']).taxon
+        def htmlTaxon = book2.addToTaxonomy(['Non-fiction', 'Web 2.0', 'Html']).taxon
+
+        book1.removeTaxonomy(['Non-fiction', 'Web 2.0', 'Entrepreneurial'])
+        assertEquals 0, book1.getTaxonomies().size()
+
+        // now try to delete and flush empty taxon, which should succeed and not try to delete its parents
+        entrepreneurialTaxon.delete(flush: true)
+        assertNull Taxon.get(entrepreneurialTaxon.id)
+        assertNotNull Taxon.get(htmlTaxon.id)
+    }
 }

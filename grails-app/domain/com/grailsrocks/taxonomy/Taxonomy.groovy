@@ -9,6 +9,6 @@ class Taxonomy {
     }
 
     static constraints = {
-        name(nullable:false, size:1..200)
+        name(nullable: false, size: 1..200)
     }
 }

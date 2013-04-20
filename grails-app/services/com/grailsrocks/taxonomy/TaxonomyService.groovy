@@ -1,7 +1,6 @@
 package com.grailsrocks.taxonomy
 
 class TaxonomyService {
-
     static transactional = true
 
     static DELIMITER = ','
@@ -18,44 +17,52 @@ class TaxonomyService {
         }
     }
 
-    Taxonomy resolveTaxonomy( taxonomyNameOrInstance, boolean create = false) {
-        def taxo = taxonomyNameOrInstance
-        if (taxo) {
-            if (!(taxo instanceof Taxonomy)) {
-                taxo = Taxonomy.findByName(taxo.toString())
-                if (!taxo) {
+    Taxonomy resolveTaxonomy(taxonomyNameOrInstance, boolean create = false) {
+        def taxonomy = taxonomyNameOrInstance
+
+        if (taxonomy) {
+            if (!(taxonomy instanceof Taxonomy)) {
+                taxonomy = Taxonomy.findByName(taxonomy.toString())
+                if (!taxonomy) {
                     if (create) {
-                        taxo = new Taxonomy(name:taxonomyNameOrInstance.toString())
-                        assert taxo.save()
-                    } else {
+                        taxonomy = new Taxonomy(name:taxonomyNameOrInstance.toString())
+                        assert taxonomy.save()
+                    }
+                    else {
                         throw new IllegalArgumentException("No taxonomy with name [${taxonomyNameOrInstance}] found")
                     }
                 }
             }
-        } else {
-            taxo = globalTaxonomy
         }
-        return taxo
+        else {
+            taxonomy = globalTaxonomy
+        }
+
+        return taxonomy
     }
 
     /**
      * Find all OBJECT INSTANCES with the specified taxonomic path or node
-     * @params params Can contain optional "taxonomy" string/Taxonomy instance to scopy the find to a particular graph
+     * @params params Can contain optional "taxonomy" string/Taxonomy instance to scope the find to a particular graph
      * If not specified, it will not filter by taxonomy graph
      */
     def findObjectsByTaxon(Class domClass, def nodeOrPath, def params = null) {
         // @todo work out correct base class to use
-        def taxo = resolveTaxonomy(params?.taxonomy)
-        def node = resolveTaxon(nodeOrPath, taxo)
+        def taxonomy = resolveTaxonomy(params?.taxonomy)
+        def node = resolveTaxon(nodeOrPath, taxonomy)
+
         if (log.debugEnabled) {
             log.debug( "findObjectsByTaxon $domClass, $nodeOrPath, $params")
         }
+
         if (node) {
             return getObjectsForTaxonIds(domClass, [node.id], params)
-        } else {
+        }
+        else {
             if (log.warnEnabled) {
-                log.warn( "findObjectsByTaxon returning null because there is no Taxon at [$nodeOrPath] in taxonomy [${taxo?.name}]")
+                log.warn( "findObjectsByTaxon returning null because there is no Taxon at [$nodeOrPath] in taxonomy [${taxonomy?.name}]")
             }
+
             return Collections.EMPTY_LIST
         }
     }
@@ -70,21 +77,25 @@ class TaxonomyService {
                 taxon {
                     if (taxonList.size() == 1) {
                         eq('id', taxonList[0])
-                    } else {
+                    }
+                    else {
                         inList('id', taxonList)
                     }
                 }
 
                 eq('className', objClass.name)
             }
+
             // Bug in Grails 1.2M2, inList dies if id list is empty
             if (log.debugEnabled) {
                 log.debug( "getObjectIdsForTaxons found object ids $ids")
             }
+
             if (ids) {
                 return objClass.findAllByIdInList(ids, params)
             }
         }
+
         return Collections.EMPTY_LIST
     }
 
@@ -95,13 +106,15 @@ class TaxonomyService {
         def taxonomy = resolveTaxonomy(params?.taxonomy)
         def parent = resolveTaxon(nodeOrPath, taxonomy)
 
-        def familyTaxonIds = findTaxonIdsDescendedFrom(parent, params)+parent.id
+        def familyTaxonIds = findTaxonIdsDescendedFrom(parent, params) + parent.id
         if (familyTaxonIds) {
             return getObjectsForTaxonIds(objClass, familyTaxonIds, params)
-        } else {
+        }
+        else {
             if (log.warnEnabled) {
                 log.warn( "findObjectsByFamily returning null because there are no Taxons in the family [$nodeOrPath] in taxonomy [${taxo?.name}]")
             }
+
             return Collections.EMPTY_LIST
         }
     }
@@ -115,7 +128,8 @@ class TaxonomyService {
 
         if (parent) {
             Taxon.findAllByParentAndScope(parent, taxonomy, params)
-        } else {
+        }
+        else {
             Taxon.findAllByParentIsNullAndScope(taxonomy, params)
         }
     }
@@ -127,18 +141,20 @@ class TaxonomyService {
         if (log.debugEnabled) {
             log.debug "findTaxonsByParentTaxons $parentTaxonList, $params"
         }
-        def taxonomy = resolveTaxonomy(params?.taxonomy)
+
+        resolveTaxonomy(params?.taxonomy)
         def parentIds = parentTaxonList*.id
         if (parentIds) {
             return Taxon.withCriteria {
                 parent {
                     inList('id', parentIds)
                 }
-                def c = criteriaParams.clone()
-                c.delegate = delegate
-                c.call(params)
+                def criteriaParamsClosure = criteriaParams.clone()
+                criteriaParamsClosure.delegate = delegate
+                criteriaParamsClosure.call(params)
             }
         }
+
         return Collections.EMPTY_LIST
     }
 
@@ -149,7 +165,8 @@ class TaxonomyService {
         if (log.debugEnabled) {
             log.debug "findTaxonsByParentTaxonIds $parentTaxonIdList, $params"
         }
-        def taxonomy = resolveTaxonomy(params?.taxonomy)
+
+        resolveTaxonomy(params?.taxonomy)
         if (parentTaxonIdList) {
             return Taxon.withCriteria {
                 projections {
@@ -158,11 +175,12 @@ class TaxonomyService {
                 parent {
                     inList('id', parentTaxonIdList)
                 }
-                def c = criteriaParams.clone()
-                c.delegate = delegate
-                c.call(params)
+                def criteriaParamsClosure = criteriaParams.clone()
+                criteriaParamsClosure.delegate = delegate
+                criteriaParamsClosure.call(params)
             }
         }
+
         return Collections.EMPTY_LIST
     }
 
@@ -170,11 +188,13 @@ class TaxonomyService {
         if (log.debugEnabled) {
             log.debug "recursivelyGatherTaxons $parentList, $targetList"
         }
+
         def interim = findTaxonsByParentTaxons(parentList, params)
         if (interim) {
             targetList.addAll(interim)
             recursivelyGatherTaxons(interim, targetList)
         }
+
         return targetList
     }
 
@@ -182,11 +202,13 @@ class TaxonomyService {
         if (log.debugEnabled) {
             log.debug "recursivelyGatherTaxonIds $parentIdList, $targetList"
         }
+
         def interim = findTaxonIdsByParentTaxonIds(parentIdList, params)
         if (interim) {
             targetList.addAll(interim)
             recursivelyGatherTaxonIds(interim, targetList)
         }
+
         return targetList
     }
 
@@ -197,12 +219,14 @@ class TaxonomyService {
         if (log.debugEnabled) {
             log.debug "findTaxonsDescendedFrom $parent, $params"
         }
+
         def taxonomy = resolveTaxonomy(params?.taxonomy)
         parent = resolveTaxon(parent, taxonomy)
 
         if (parent) {
             return recursivelyGatherTaxons([parent], [], params)
-        } else {
+        }
+        else {
             return Taxon.findAllByScope(taxonomy, params)
         }
     }
@@ -214,12 +238,14 @@ class TaxonomyService {
         if (log.debugEnabled) {
             log.debug "findTaxonIdsDescendedFrom $parent, $params"
         }
+
         def taxonomy = resolveTaxonomy(params?.taxonomy)
         parent = resolveTaxon(parent, taxonomy)
 
         if (parent) {
             return recursivelyGatherTaxonIds([parent.id], [], params)
-        } else {
+        }
+        else {
             return Taxon.findAllByScope(taxonomy, params)*.id // @todo use criteria + projection
         }
     }
@@ -231,9 +257,11 @@ class TaxonomyService {
         if (params?.offset) {
             firstResult(params.offset.toString().toInteger())
         }
+
         if (params?.max) {
             maxResults(params.max.toString().toInteger())
         }
+
         if (params?.sort) {
             order(params.sort, params?.order ?: 'asc')
         }
@@ -250,27 +278,28 @@ class TaxonomyService {
             log.debug "findTaxonsbyParentAndCriteria resolved parent to ${parent?.dump()} and taxonomy to ${taxonomy.dump()}"
         }
 
-        def l = Taxon.withCriteria {
+        def taxonList = Taxon.withCriteria {
             eq('scope', taxonomy)
             if (parent) {
                 eq('parent', parent)
-            } else {
+            }
+            else {
                 isNull('parent')
             }
 
-            def c = criteriaParams.clone()
-            c.delegate = delegate
-            c.call(params)
+            def criteriaParamsClosure = criteriaParams.clone()
+            criteriaParamsClosure.delegate = delegate
+            criteriaParamsClosure.call(params)
 
             criteria.delegate = delegate
             criteria.call()
         }
 
         if (log.debugEnabled) {
-            log.debug "findTaxonsbyParentAndCriteria found: ${l.dump()}"
+            log.debug "findTaxonsbyParentAndCriteria found: ${taxonList.dump()}"
         }
 
-        return l
+        return taxonList
     }
 
     /**
@@ -293,62 +322,69 @@ class TaxonomyService {
             nodeOrPath = nodeOrPath.toString().split(TaxonomyService.DELIMITER)
         }
 
-        def previous
-        def link
-        def n
-        def c
-        def notFound
-        nodeOrPath.find { t ->
+        def previousTaxon
+        def currentTaxon = null
+        def notFound = null
+        nodeOrPath.find { taxonToBeFound ->
             if (log.debugEnabled) {
-                log.debug "resolveTaxon in loop - [$t], previous is [$previous?.name]"
+                log.debug "resolveTaxon in loop - [$taxonToBeFound], previous is [$previousTaxon?.name]"
             }
-            n = Taxon.createCriteria().get {
-                eq('name', t)
+
+            currentTaxon = Taxon.createCriteria().get {
+                eq('name', taxonToBeFound)
                 eq('scope', taxonomy)
-                if (previous) {
-                    eq('parent', previous)
-                } else {
+
+                if (previousTaxon) {
+                    eq('parent', previousTaxon)
+                }
+                else {
                     isNull('parent')
                 }
             }
-            previous = n
-            if (!n) {
+
+            previousTaxon = currentTaxon
+            if (!currentTaxon) {
                 notFound = true
                 return true // Only break out if we don't find one, eg path not valid
             }
+
             return false
         }
+
         if (log.debugEnabled) {
-            log.debug( "resolveTaxon resolved? ${!notFound} (${n?.dump()})")
+            log.debug( "resolveTaxon resolved? ${!notFound} (${currentTaxon?.dump()})")
         }
-        return notFound ? null : n
+
+        return notFound ? null : currentTaxon
     }
 
     /**
-     * Find the TaxonLink object for the give taxo node or path, for the given object instance - if any
+     * Find the TaxonLink object for the given taxon node or path, for the given object instance - if any
      */
-    def findLink(Object obj, taxo, taxonomy = null) {
-        if (taxo instanceof Taxon) {
-            def c = TaxonLink.createCriteria()
-            c.get  {
+    def findLink(Object obj, taxon, taxonomy = null) {
+        if (taxon instanceof Taxon) {
+            def criteria = TaxonLink.createCriteria()
+            criteria.get  {
                 eq('objectId', obj.id)
-                eq('taxon', taxo)
+                eq('taxon', taxon)
                 eq('className', obj.class.name)
             }
-        } else {
+        }
+        else {
             // @todo Here we need to check against a cache first to find the last Taxon in the chain
 
-            def n = resolveTaxon(taxo, taxonomy)
-            if (n) {
-                findLink(obj, n) // recurse once!
-            } else {
+            def resolvedTaxon = resolveTaxon(taxon, taxonomy)
+            if (resolvedTaxon) {
+                findLink(obj, resolvedTaxon) // recurse once!
+            }
+            else {
                 return null
             }
         }
     }
 
     /**
-     * Remove the link to a taxo node (or path) for the given object instance
+     * Remove the link to a taxon node (or path) for the given object instance
      */
     void removeLink(obj, taxonOrPath, taxonomy = null) {
         findLink(obj, taxonOrPath, taxonomy)?.delete()
@@ -372,8 +408,8 @@ class TaxonomyService {
      * Find all the TaxonLink objects for the give taxonomy for the given object instance - if any
      */
     List findAllLinks(Object obj) {
-        def c = TaxonLink.createCriteria()
-        return c.list {
+        def criteria = TaxonLink.createCriteria()
+        return criteria.list {
             eq('objectId', obj.id)
             eq('className', obj.class.name)
         }
@@ -383,14 +419,17 @@ class TaxonomyService {
         if (log.debugEnabled) {
             log.debug "saveNewLink $obj, $node"
         }
-        def t = new TaxonLink(taxon:node, className:obj.class.name, objectId:obj.id)
-        if (!t.save()) {
+
+        def taxonLink = new TaxonLink(taxon:node, className:obj.class.name, objectId:obj.id)
+        if (!taxonLink.save()) {
             if (log.errorEnabled) {
-                log.error "Failed to save taxon link: ${t.errors}"
+                log.error "Failed to save taxon link: ${taxonLink.errors}"
             }
-            assert !t.errors
+
+            assert !taxonLink.errors
         }
-        return t
+
+        return taxonLink
     }
 
     /**
@@ -404,33 +443,37 @@ class TaxonomyService {
             path = path.toString().split(TaxonomyService.DELIMITER)
         }
 
-        def previous
-        def link
-        def n
-        Closure c
-        path.each { t ->
-            n = Taxon.createCriteria().get {
-                eq('name', t)
+        def previousTaxon
+        def currentTaxon = null
+        path.each { taxonName ->
+            currentTaxon = Taxon.createCriteria().get {
+                eq('name', taxonName)
                 eq('scope', taxonomy)
-                if (previous) {
-                    eq('parent', previous)
-                } else {
+                if (previousTaxon) {
+                    eq('parent', previousTaxon)
+                }
+                else {
                     isNull('parent')
                 }
             }
-            if (!n) {
+
+            if (!currentTaxon) {
                 if (log.debugEnabled) {
-                    log.debug "Creating new Taxon with name ${t} in scope ${taxonomy?.dump()} with parent ${previous?.name}"
+                    log.debug "Creating new Taxon with name ${taxonName} in scope ${taxonomy?.dump()} with parent ${previousTaxon?.name}"
                 }
-                n = new Taxon(name:t, scope:taxonomy, parent:previous).save()
-                assert n
+
+                currentTaxon = new Taxon(name:taxonName, scope:taxonomy, parent:previousTaxon).save()
+                assert currentTaxon
             }
-            previous = n
+
+            previousTaxon = currentTaxon
         }
+
         if (log.debugEnabled) {
-            log.debug "Returning new Taxon with name ${n}"
+            log.debug "Returning new Taxon with name ${currentTaxon}"
         }
-        return n
+
+        return currentTaxon
     }
 
     void dumpTaxonomy(taxonomy = null) {

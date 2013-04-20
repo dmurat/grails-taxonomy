@@ -11,7 +11,7 @@ class TaxonomyGrailsPlugin {
     def dependsOn = [domainClass:'1.1.1 > *']
     def observe = ['domainClass']
     def loadAfter = ['hibernate']
-    
+
     // resources that are excluded from plugin packaging
     def pluginExcludes = [
             "grails-app/views/error.gsp",
@@ -22,91 +22,96 @@ class TaxonomyGrailsPlugin {
     def authorEmail = "marc@grailsrocks.com"
     def title = "Taxonomy Plugin"
     def description = '''\\
-Add hierarichal tags (taxonomies) to any domain classes.
+Add hierarchical tags (taxonomies) to any domain classes.
 '''
 
     // URL to the plugin's documentation
     def documentation = "http://grails.org/Taxonomy+Plugin"
 
     def doWithWebDescriptor = { xml ->
-        // TODO Implement additions to web.xml (optional), this event occurs before 
     }
 
     def doWithSpring = {
-        // TODO Implement runtime spring config (optional)
     }
 
     def doWithDynamicMethods = { ctx ->
-        def taxoService = ctx.taxonomyService
-        
-        // Make sure global taxo is initialized
-        taxoService.init()
-        
+        TaxonomyService taxonomyService = ctx.taxonomyService
+
+        // Make sure global taxonomy is initialized
+        taxonomyService.init()
+
         applyDynamicMethods(application)
     }
 
-    def applyDynamicMethods(application) {
-        def taxoService = application.mainContext.taxonomyService
+    static applyDynamicMethods(application) {
+        TaxonomyService taxonomyService = application.mainContext.taxonomyService
 
-        application.domainClasses*.clazz.each { c ->
-            //println "Checking for taxonomy convention on ${c}"
-            if (c.metaClass.hasProperty(c, 'taxonomy') && c.taxonomy) {
-                //println "Adding taxonomy methods to ${c}"
-                // family can include "taxonomy" arg, string/Taxonomy instance 
-                c.metaClass.'static'.findByTaxonomyFamily = { nodeOrPath, Map params = null ->
+        application.domainClasses*.clazz.each { domainClazz ->
+            if (domainClazz.metaClass.hasProperty(domainClazz, 'taxonomy') && domainClazz.taxonomy) {
+                // family can include "taxonomy" arg, string/Taxonomy instance
+                domainClazz.metaClass.'static'.findByTaxonomyFamily = { nodeOrPath, Map params = null ->
                     if (!params) {
-                        params = [max:1] 
-                    } else {
+                        params = [max:1]
+                    }
+                    else {
                         params.max = 1
                     }
-                    o = taxoService.findObjectsByFamily(delegate, nodeOrPath, params)
+                    def o = taxonomyService.findObjectsByFamily(delegate, nodeOrPath, params)
                     return o.size() ? o.get(0) : null
                 }
-                // family can include "taxonomy" arg, string/Taxonomy instance 
-                c.metaClass.'static'.findAllByTaxonomyFamily = { nodeOrPath, Map params = null ->
-                    taxoService.findObjectsByFamily(delegate, nodeOrPath, params)
+
+                // family can include "taxonomy" arg, string/Taxonomy instance
+                domainClazz.metaClass.'static'.findAllByTaxonomyFamily = { nodeOrPath, Map params = null ->
+                    taxonomyService.findObjectsByFamily(delegate, nodeOrPath, params)
                 }
-                // family can include "taxonomy" arg, string/Taxonomy instance 
-                c.metaClass.'static'.findByTaxonomyExact = { nodeOrPath, Map params = null ->
+
+                // family can include "taxonomy" arg, string/Taxonomy instance
+                domainClazz.metaClass.'static'.findByTaxonomyExact = { nodeOrPath, Map params = null ->
                     if (!params) {
-                        params = [max:1] 
-                    } else {
+                        params = [max:1]
+                    }
+                    else {
                         params.max = 1
                     }
-                    def o = taxoService.findObjectsByTaxon(delegate, nodeOrPath, params)
+                    def o = taxonomyService.findObjectsByTaxon(delegate, nodeOrPath, params)
                     return o.size() ? o.get(0) : null
                 }
-                // family can include "taxonomy" arg, string/Taxonomy instance 
-                c.metaClass.'static'.findAllByTaxonomyExact = { nodeOrPath, Map params = null ->
-                    taxoService.findObjectsByTaxon(delegate, nodeOrPath, params)
+
+                // family can include "taxonomy" arg, string/Taxonomy instance
+                domainClazz.metaClass.'static'.findAllByTaxonomyExact = { nodeOrPath, Map params = null ->
+                    taxonomyService.findObjectsByTaxon(delegate, nodeOrPath, params)
                 }
-                c.metaClass.addToTaxonomy = { nodeOrPath, taxonomy = null ->
-                    def link = taxoService.findLink(delegate, nodeOrPath, taxonomy)
+
+                domainClazz.metaClass.addToTaxonomy = { nodeOrPath, taxonomy = null ->
+                    def link = taxonomyService.findLink(delegate, nodeOrPath, taxonomy)
                     if (!link) {
                         if (!(nodeOrPath instanceof Taxon)) {
-                            nodeOrPath = taxoService.createTaxonomyPath(nodeOrPath, taxonomy)
+                            nodeOrPath = taxonomyService.createTaxonomyPath(nodeOrPath, taxonomy)
                         }
-                        taxoService.saveNewLink(delegate, nodeOrPath)
+                        taxonomyService.saveNewLink(delegate, nodeOrPath)
                     }
                 }
-                c.metaClass.clearTaxonomies = { ->
-                    taxoService.removeAllLinks(delegate)
+
+                domainClazz.metaClass.clearTaxonomies = { ->
+                    taxonomyService.removeAllLinks(delegate)
                 }
-                c.metaClass.getTaxonomies = { ->
-                    taxoService.findAllLinks(delegate)*.taxon
+
+                domainClazz.metaClass.getTaxonomies = { ->
+                    taxonomyService.findAllLinks(delegate)*.taxon
                 }
-                c.metaClass.hasTaxonomy = { nodeOrPath, taxonomy = null ->
-                    taxoService.hasLink(delegate, nodeOrPath, taxonomy)
+
+                domainClazz.metaClass.hasTaxonomy = { nodeOrPath, taxonomy = null ->
+                    taxonomyService.hasLink(delegate, nodeOrPath, taxonomy)
                 }
-                c.metaClass.removeTaxonomy = { nodeOrPath, taxonomy = null ->
-                    taxoService.removeLink(delegate, nodeOrPath, taxonomy)
+
+                domainClazz.metaClass.removeTaxonomy = { nodeOrPath, taxonomy = null ->
+                    taxonomyService.removeLink(delegate, nodeOrPath, taxonomy)
                 }
             }
         }
     }
 
     def doWithApplicationContext = { applicationContext ->
-        // TODO Implement post initialization spring config (optional)
     }
 
     def onChange = { event ->
@@ -114,7 +119,5 @@ Add hierarichal tags (taxonomies) to any domain classes.
     }
 
     def onConfigChange = { event ->
-        // TODO Implement code that is executed when the project configuration changes.
-        // The event is the same as for 'onChange'.
     }
 }

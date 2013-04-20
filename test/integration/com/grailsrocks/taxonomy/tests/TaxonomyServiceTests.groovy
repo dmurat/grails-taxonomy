@@ -7,14 +7,13 @@ import com.grailsrocks.taxonomy.TaxonomyService
 import com.grailsrocks.taxonomy.test.Book
 
 class TaxonomyServiceTests extends GroovyTestCase {
-
-    def svc
+    TaxonomyService taxonomyService
 
     protected void setUp() {
         super.setUp()
 
-        svc = new TaxonomyService()
-        svc.init()
+        taxonomyService = new TaxonomyService()
+        taxonomyService.init()
     }
 
     protected void tearDown() {
@@ -24,7 +23,7 @@ class TaxonomyServiceTests extends GroovyTestCase {
     void testGlobalTaxonomyInit() {
         def globalTaxonomy = Taxonomy.findByName(TaxonomyService.GLOBAL_TAXONOMY_NAME)
         assertNotNull globalTaxonomy
-        assertEquals svc.globalTaxonomy, globalTaxonomy
+        assertEquals taxonomyService.globalTaxonomy, globalTaxonomy
     }
 
     void testAddGlobalTaxonomy() {
@@ -35,24 +34,27 @@ class TaxonomyServiceTests extends GroovyTestCase {
 
         // Check the taxon hierarchy was created
         assertEquals 3, Taxon.count()
-        def nf = Taxon.findByName('Non-fiction')
-        assertNotNull nf
-        assertEquals svc.globalTaxonomy, nf.scope
-        def bi = Taxon.findByName('Business')
-        assertNotNull bi
-        assertEquals svc.globalTaxonomy, bi.scope
-        def en = Taxon.findByName('Entrepreneurial')
-        assertNotNull en
-        assertEquals svc.globalTaxonomy, en.scope
+
+        def nonFictionTaxon = Taxon.findByName('Non-fiction')
+        assertNotNull nonFictionTaxon
+        assertEquals taxonomyService.globalTaxonomy, nonFictionTaxon.scope
+
+        def businessTaxon = Taxon.findByName('Business')
+        assertNotNull businessTaxon
+        assertEquals taxonomyService.globalTaxonomy, businessTaxon.scope
+
+        def entrepreneurialTaxon = Taxon.findByName('Entrepreneurial')
+        assertNotNull entrepreneurialTaxon
+        assertEquals taxonomyService.globalTaxonomy, entrepreneurialTaxon.scope
 
         // Check the parents of the Taxons are correct
-        assertEquals nf, bi.parent
-        assertEquals bi, en.parent
+        assertEquals nonFictionTaxon, businessTaxon.parent
+        assertEquals businessTaxon, entrepreneurialTaxon.parent
 
         // Check the taxon link was created between object and taxon
         def link = TaxonLink.findByObjectIdAndClassName(book.id, book.class.name)
         assertNotNull link
-        assertEquals en, link.taxon
+        assertEquals entrepreneurialTaxon, link.taxon
 
         // Check that adding the same taxonomy again does not create new Taxon(s) or links
         book.addToTaxonomy(['Non-fiction', 'Business', 'Entrepreneurial'])
@@ -67,9 +69,9 @@ class TaxonomyServiceTests extends GroovyTestCase {
         assertEquals 2, links.size()
 
         // One end point should be entrepreneurial
-        assertNotNull links.find { l -> l.taxon == en }
+        assertNotNull links.find { l -> l.taxon == entrepreneurialTaxon }
         // One end point should be business
-        assertNotNull links.find { l -> l.taxon == bi }
+        assertNotNull links.find { l -> l.taxon == businessTaxon }
     }
 
     void testParamsUsageWithCriteria() {
@@ -82,25 +84,25 @@ class TaxonomyServiceTests extends GroovyTestCase {
         book1.addToTaxonomy(['Blogs', 'Business'])
 
         // Test the control case
-        def taxons = svc.findTaxonsByParentAndCriteria('Collection', null) {
+        def taxons = taxonomyService.findTaxonsByParentAndCriteria('Collection', null) {
             ilike('name', 'b%')
         }
         assertEquals 2, taxons.size()
 
         // Test max
-        taxons = svc.findTaxonsByParentAndCriteria('Collection', [max:1]) {
+        taxons = taxonomyService.findTaxonsByParentAndCriteria('Collection', [max:1]) {
             ilike('name', 'b%')
         }
         assertEquals 1, taxons.size()
 
         // Test offset
-        taxons = svc.findTaxonsByParentAndCriteria('Collection', [max:1, offset:0, sort:'name']) {
+        taxons = taxonomyService.findTaxonsByParentAndCriteria('Collection', [max:1, offset:0, sort:'name']) {
             ilike('name', 'b%')
         }
         assertEquals 1, taxons.size()
         assertEquals 'Blogging', taxons[0].name
 
-        taxons = svc.findTaxonsByParentAndCriteria('Collection', [max:1, offset:1, sort:'name']) {
+        taxons = taxonomyService.findTaxonsByParentAndCriteria('Collection', [max:1, offset:1, sort:'name']) {
             ilike('name', 'b%')
         }
         assertEquals 1, taxons.size()
@@ -138,13 +140,13 @@ class TaxonomyServiceTests extends GroovyTestCase {
         book1.addToTaxonomy(['Canada', 'English'], 'translations')
 
         // Test full graph of specific taxonomies
-        def taxons = svc.findTaxonsDescendedFrom(null)
+        def taxons = taxonomyService.findTaxonsDescendedFrom(null)
         assertEquals 8, taxons.size()
-        taxons = svc.findTaxonsDescendedFrom(null, [taxonomy:'translations'])
+        taxons = taxonomyService.findTaxonsDescendedFrom(null, [taxonomy:'translations'])
         assertEquals 3, taxons.size()
 
-        def collectionTaxon = svc.resolveTaxon('Collection')
-        taxons = svc.findTaxonsDescendedFrom('Collection')
+        def collectionTaxon = taxonomyService.resolveTaxon('Collection')
+        taxons = taxonomyService.findTaxonsDescendedFrom('Collection')
         assertEquals 3, taxons.size()
         def t = taxons.find { it.name == 'Business' }
         assertNotNull t
@@ -152,13 +154,13 @@ class TaxonomyServiceTests extends GroovyTestCase {
 
         println "Taxons found for 'collection' are: ${taxons*.dump()}"
 
-        def blogt = taxons.find { it.name == 'Blogging' }
-        assertNotNull blogt
-        assertEquals collectionTaxon.id, blogt.parent.id
+        def bloggingTaxon = taxons.find { it.name == 'Blogging' }
+        assertNotNull bloggingTaxon
+        assertEquals collectionTaxon.id, bloggingTaxon.parent.id
 
-        def famt = taxons.find { it.name == 'Famous' }
-        assertNotNull famt
-        assertEquals blogt.id, famt.parent.id
+        def famousTaxon = taxons.find { it.name == 'Famous' }
+        assertNotNull famousTaxon
+        assertEquals bloggingTaxon.id, famousTaxon.parent.id
     }
 
     void testFindObjectsInFamily() {
@@ -198,27 +200,27 @@ class TaxonomyServiceTests extends GroovyTestCase {
         book2.addToTaxonomy(['Non-fiction', 'Business'])
 
         // This should find both books
-        def collObjs = Book.findAllByTaxonomyFamily('Collection')
-        assertEquals 2, collObjs.size()
-        assertNotNull collObjs.contains(book1)
-        assertNotNull collObjs.contains(book2)
+        def bookCollection = Book.findAllByTaxonomyFamily('Collection')
+        assertEquals 2, bookCollection.size()
+        assertNotNull bookCollection.contains(book1)
+        assertNotNull bookCollection.contains(book2)
 
         // This should find one book
-        collObjs = Book.findAllByTaxonomyFamily(['Collection', 'Business'])
-        assertEquals 1, collObjs.size()
-        assertNotNull collObjs.contains(book1)
+        bookCollection = Book.findAllByTaxonomyFamily(['Collection', 'Business'])
+        assertEquals 1, bookCollection.size()
+        assertNotNull bookCollection.contains(book1)
 
         // This should find both books
-        collObjs = Book.findAllByTaxonomyFamily(['Collection', 'Blogging', 'Famous'])
-        assertEquals 2, collObjs.size()
-        assertNotNull collObjs.contains(book1)
-        assertNotNull collObjs.contains(book2)
+        bookCollection = Book.findAllByTaxonomyFamily(['Collection', 'Blogging', 'Famous'])
+        assertEquals 2, bookCollection.size()
+        assertNotNull bookCollection.contains(book1)
+        assertNotNull bookCollection.contains(book2)
 
         // This should find both books
-        collObjs = Book.findAllByTaxonomyFamily(['Non-fiction', 'Business'])
-        assertEquals 2, collObjs.size()
-        assertNotNull collObjs.contains(book1)
-        assertNotNull collObjs.contains(book2)
+        bookCollection = Book.findAllByTaxonomyFamily(['Non-fiction', 'Business'])
+        assertEquals 2, bookCollection.size()
+        assertNotNull bookCollection.contains(book1)
+        assertNotNull bookCollection.contains(book2)
     }
 
     void testFindTaxonsByParent() {
@@ -234,7 +236,7 @@ class TaxonomyServiceTests extends GroovyTestCase {
         book1.addToTaxonomy(['Canada', 'English'], 'translations')
 
         // Test the null parent case
-        def taxons = svc.findTaxonsByParent(null)
+        def taxons = taxonomyService.findTaxonsByParent(null)
 
         assertEquals 3, taxons.size() // Only 3 are in the default taxonomy
         assertNotNull taxons.find { t -> t.name == 'Non-fiction' }
@@ -242,14 +244,14 @@ class TaxonomyServiceTests extends GroovyTestCase {
         assertNotNull taxons.find { t -> t.name == 'Blogs' }
 
         // Test the non-null parent case
-        taxons = svc.findTaxonsByParent('Collection')
+        taxons = taxonomyService.findTaxonsByParent('Collection')
 
         assertEquals 2, taxons.size() // Only 2 are in the default taxonomy
         assertNotNull taxons.find { t -> t.name == 'Business' }
         assertNotNull taxons.find { t -> t.name == 'Blogging' }
 
         // Test the null parent case with criteria
-        taxons = svc.findTaxonsByParentAndCriteria(null, [:]) {
+        taxons = taxonomyService.findTaxonsByParentAndCriteria(null, [:]) {
             ilike('name', '%ion')
         }
 
@@ -257,10 +259,10 @@ class TaxonomyServiceTests extends GroovyTestCase {
         assertNotNull taxons.find { t -> t.name == 'Non-fiction' }
         assertNotNull taxons.find { t -> t.name == 'Collection' }
 
-        svc.dumpTaxonomy()
+        taxonomyService.dumpTaxonomy()
 
         // Test the non-null parent case with criteria
-        taxons = svc.findTaxonsByParentAndCriteria('Collection', [:]) {
+        taxons = taxonomyService.findTaxonsByParentAndCriteria('Collection', [:]) {
             ilike('name', 'bus%')
         }
 
@@ -268,7 +270,7 @@ class TaxonomyServiceTests extends GroovyTestCase {
         assertNotNull taxons.find { t -> t.name == 'Business' }
 
         // Test the non-null parent case
-        taxons = svc.findTaxonsByParentAndCriteria('Collection', [:]) {
+        taxons = taxonomyService.findTaxonsByParentAndCriteria('Collection', [:]) {
             ilike('name', 'b%')
         }
 
@@ -277,7 +279,7 @@ class TaxonomyServiceTests extends GroovyTestCase {
         assertNotNull taxons.find { t -> t.name == 'Blogging' }
 
         // Test the non-null parent case with alternative taxonomy
-        taxons = svc.findTaxonsByParentAndCriteria('Canada', [taxonomy:'translations']) {
+        taxons = taxonomyService.findTaxonsByParentAndCriteria('Canada', [taxonomy:'translations']) {
             ilike('name', '%ish')
         }
 
@@ -288,6 +290,7 @@ class TaxonomyServiceTests extends GroovyTestCase {
     void testFindByTaxonExact() {
         def book1 = new Book(title:'Reality Check')
         assert book1.save()
+
         def book2 = new Book(title:'Tribes')
         assert book2.save()
 
@@ -312,8 +315,10 @@ class TaxonomyServiceTests extends GroovyTestCase {
         // These must fail
         book = Book.findByTaxonomyExact(['Non-fiction', 'Web 2.0'])
         assertNull book
+
         book = Book.findByTaxonomyExact(['Non-fiction'])
         assertNull book
+
         book = Book.findByTaxonomyExact(['Nonsense'])
         assertNull book
 
@@ -321,6 +326,7 @@ class TaxonomyServiceTests extends GroovyTestCase {
         // This must be null
         book = Book.findByTaxonomyExact(['Non-fiction', 'Web 2.0', 'Entrepreneurial'], [taxonomy:'author_category'])
         assertNull book
+
         book = Book.findByTaxonomyExact(['Technology', 'Blogger']) // searches global taxon, not there
         assertNull book
 
@@ -364,10 +370,9 @@ class TaxonomyServiceTests extends GroovyTestCase {
         book1.addToTaxonomy(['Non-fiction', 'Web 2.0', 'Entrepreneurial'])
         book2.addToTaxonomy(['Non-fiction', 'Web 2.0', 'Entrepreneurial'])
 
-        assertEquals svc.resolveTaxon(['Non-fiction', 'Web 2.0', 'Entrepreneurial']).ident(),
-            book1.getTaxonomies()[0].ident()
+        assertEquals taxonomyService.resolveTaxon(['Non-fiction', 'Web 2.0', 'Entrepreneurial']).ident(), book1.getTaxonomies()[0].ident()
         assertTrue book1.hasTaxonomy(['Non-fiction', 'Web 2.0', 'Entrepreneurial'])
-        assertFalse book1.hasTaxonomy(['Non-fiction', 'Web 2.0', 'BLABLABLA'])
+        assertFalse book1.hasTaxonomy(['Non-fiction', 'Web 2.0', 'NonExisting'])
 
         // remove all
         assertEquals 1, book1.getTaxonomies().size()
@@ -376,7 +381,6 @@ class TaxonomyServiceTests extends GroovyTestCase {
         assertFalse book1.hasTaxonomy(['Non-fiction', 'Web 2.0', 'Entrepreneurial'])
 
         // but its still on book2 right?
-        assertEquals svc.resolveTaxon(['Non-fiction', 'Web 2.0', 'Entrepreneurial']).ident(),
-            book2.getTaxonomies()[0].ident()
+        assertEquals taxonomyService.resolveTaxon(['Non-fiction', 'Web 2.0', 'Entrepreneurial']).ident(), book2.getTaxonomies()[0].ident()
     }
 }

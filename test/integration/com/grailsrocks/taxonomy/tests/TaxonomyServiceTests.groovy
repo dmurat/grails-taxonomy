@@ -1,10 +1,12 @@
 package com.grailsrocks.taxonomy.tests
 
-import grails.test.*
-import com.grailsrocks.taxonomy.*
-import com.grailsrocks.taxonomy.test.*
+import com.grailsrocks.taxonomy.Taxon
+import com.grailsrocks.taxonomy.TaxonLink
+import com.grailsrocks.taxonomy.Taxonomy
+import com.grailsrocks.taxonomy.TaxonomyService
+import com.grailsrocks.taxonomy.test.Book
 
-class TaxonomyServiceTests extends GrailsUnitTestCase {
+class TaxonomyServiceTests extends GroovyTestCase {
 
     def svc
 

@@ -11,9 +11,6 @@ class TaxonomyServiceTests extends GroovyTestCase {
 
     protected void setUp() {
         super.setUp()
-
-        taxonomyService = new TaxonomyService()
-        taxonomyService.init()
     }
 
     protected void tearDown() {

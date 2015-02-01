@@ -1,5 +1,8 @@
 package com.grailsrocks.taxonomy
 
+import groovy.transform.EqualsAndHashCode
+
+@EqualsAndHashCode
 class Taxonomy {
 
     String name

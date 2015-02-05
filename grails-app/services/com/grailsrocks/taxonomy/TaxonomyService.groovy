@@ -3,7 +3,7 @@ package com.grailsrocks.taxonomy
 class TaxonomyService {
     static transactional = true
 
-    static DELIMITER = ','
+    static DELIMITER = ':::'
 
     static GLOBAL_TAXONOMY_NAME = '_global'
 

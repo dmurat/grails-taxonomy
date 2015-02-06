@@ -491,4 +491,28 @@ class TaxonomyService {
             println path
         }
     }
+
+    List resolveTaxonPath(Taxon taxonToResolvePath, taxonomy = null) {
+        if (!taxonToResolvePath) {
+            return []
+        }
+
+        taxonomy = resolveTaxonomy(taxonomy)
+
+        if (log.debugEnabled) {
+            log.debug( "resolveTaxonPath ${taxonToResolvePath.dump()}, ${taxonomy.dump()}")
+        }
+
+        List taxonNameReverseList = []
+        taxonNameReverseList << taxonToResolvePath.name
+
+        def parentTaxon = taxonToResolvePath.parent
+
+        while(parentTaxon) {
+            taxonNameReverseList << parentTaxon.name
+            parentTaxon = parentTaxon.parent
+        }
+
+        return taxonNameReverseList.reverse()
+    }
 }

@@ -399,4 +399,21 @@ class TaxonomyServiceTests extends GroovyTestCase {
         assertNull Taxon.get(entrepreneurialTaxon.id)
         assertNotNull Taxon.get(htmlTaxon.id)
     }
+
+    void testResolveTaxonPath() {
+        def book1 = new Book(title:'Reality Check')
+        assert book1.save()
+
+        def book2 = new Book(title:'Tribes')
+        assert book2.save()
+
+        Taxon entrepreneurialTaxon = book1.addToTaxonomy(['Non-fiction', 'Web 2.0', 'Entrepreneurial']).taxon
+        Taxon htmlTaxon = book2.addToTaxonomy(['Non-fiction', 'Web 2.0', 'Html']).taxon
+
+        assertEquals 1, book1.getTaxonomies().size
+        assertEquals 1, book2.getTaxonomies().size
+
+        assertEquals(['Non-fiction', 'Web 2.0', 'Entrepreneurial'], taxonomyService.resolveTaxonPath(entrepreneurialTaxon))
+        assertEquals(['Non-fiction', 'Web 2.0', 'Html'], taxonomyService.resolveTaxonPath(htmlTaxon))
+    }
 }
